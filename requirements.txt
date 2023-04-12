@@ -1,0 +1,2 @@
+librosa==0.10.0.post2
+matplotlib==3.7.1
