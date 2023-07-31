@@ -2,6 +2,8 @@ from matplotlib import pyplot as plt
 import librosa
 import pandas as pd
 import seaborn as sns
+import numpy as np
+from sklearn.metrics import confusion_matrix
 
 
 def plot_spectrogram(signal, name):
@@ -28,3 +30,23 @@ def print_multiclass_confusion_matrix(confusion_matrix, axes, class_label, class
     axes.set_ylabel('True label')
     axes.set_xlabel('Predicted label')
     axes.set_title(class_label)
+
+
+def plot_confusion_matrix(y_test, y_true, y_pred, image_path=f'Doc/figures/confusion_matrix.jpg'):
+    labels = np.unique(y_test)
+    labels_translated = np.array(['Гнев',
+                                  'Спокойствие',
+                                  'Отвращение',
+                                  'Страх',
+                                  'Счастье',
+                                  'Нейтральность',
+                                  'Грусть',
+                                  'Удивление'])
+    cm = confusion_matrix(y_true, y_pred, normalize='true', labels=labels)
+
+    df_cm_4 = pd.DataFrame(cm, columns=labels_translated, index=labels_translated)
+    fig, ax = plt.subplots(dpi=110)
+    sns.heatmap(df_cm_4, annot=True, fmt='.2f', linewidth=1.5)
+    plt.show()
+    print('Saving confusion matrix with name: ', image_path)
+    fig.savefig(image_path, format='jpg', dpi=200, bbox_inches='tight', pad_inches=0.2)
