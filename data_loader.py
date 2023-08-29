@@ -1,13 +1,13 @@
 import glob
 import os
+import platform
+import time
 
 import librosa
 import numpy as np
-import platform
-from tqdm import tqdm
-import time
 import pandas as pd
 from pydub import AudioSegment
+from tqdm import tqdm
 
 
 def get_emotions_dictionary():
@@ -83,6 +83,32 @@ def detect_voice_activity(audio_file_path, silence_threshold=40):
     return voice_segments
 
 
+def extract_mffcs_with_vad(file_name):
+    """
+    Performs voice activity detection on a given sample.
+    After that performs the calculation of supra-segment features
+    based on MFCC to obtain a characteristic vector.
+
+    Output:
+    The resulting mean MFCC and standard deviation of MFCC
+    provides a measure of the average squared deviation of
+    each MFCC feature across timeline.
+    """
+    voice_segments = detect_voice_activity(file_name)
+    # Process voice segments and extract MFCCs
+    mfcc_features = []
+    for segment in voice_segments:
+        # Convert PyDub AudioSegment to NumPy array
+        audio_array = np.array(segment.get_array_of_samples())
+
+        # Compute MFCCs using librosa
+        mfcc = librosa.feature.mfcc(y=audio_array, sr=segment.frame_rate, n_mfcc=40).T
+        mfcc_features.append(mfcc)
+    mean_mfcc = np.mean(mfcc_features, axis=0)
+    sd_mfcc = np.std(mfcc_features, axis=0)
+    return mean_mfcc, sd_mfcc
+
+
 def extract_feature(file_name, mfcc_flag):
     """
     Performing the calculation of supra-segment features
@@ -114,7 +140,7 @@ def dataset_options():
     return data
 
 
-def build_dataset():
+def build_dataset(use_vad=False):
     X, y, ID = [], [], []
 
     # feature to extract
@@ -141,7 +167,10 @@ def build_dataset():
             if emotion not in get_observed_emotions():  # options observed_emotions - RAVDESS and TESS, ravdess_emotions for RAVDESS only
                 continue
             actor = np.array(get_actors()[splited_file_name[6].split(".")[0]])
-            mean_mfcc, sd_mfcc = extract_feature(file, mfcc)
+            if use_vad:
+                mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file)
+            else:
+                mean_mfcc, sd_mfcc = extract_feature(file, mfcc)
             feature = np.hstack((mean_mfcc, sd_mfcc))
             X.append(feature)
             y.append(emotion)
@@ -161,7 +190,7 @@ def build_dataset():
     return {"X": X, "y": y, "ID": ID}
 
 
-def generate_csv_dataset():
+def generate_csv_dataset(use_vad=False):
     """
     Generates a data set containing combined features matrix (MFCCs and standard deviation of MFCC),
     class labels and actor IDs
@@ -170,7 +199,7 @@ def generate_csv_dataset():
     """
     start_time = time.time()
 
-    dataset = build_dataset()
+    dataset = build_dataset(use_vad)
 
     print("--- Data loaded. Loading time: %s seconds ---" % (time.time() - start_time))
     X = pd.DataFrame(dataset["X"])
@@ -184,20 +213,35 @@ def generate_csv_dataset():
     print("y.shape = ", y.shape)
     print("ID.shape = ", ID.shape)
 
-    X.to_csv('data/feature_vector_based_mean_mfcc_and_std_mfcc.csv')
-    y.to_csv('data/y_labels.csv')
-    ID.to_csv('data/IDs.csv')
+    if use_vad:
+        X_path = 'data/vad_feature_vector_based_mean_mfcc_and_std_mfcc.csv'
+        y_path = 'data/vad_y_labels.csv'
+        ID_path = 'data/vad_IDs.csv'
+    else:
+        X_path = 'data/feature_vector_based_mean_mfcc_and_std_mfcc.csv'
+        y_path = 'data/y_labels.csv'
+        ID_path = 'data/IDs.csv'
+    X.to_csv(X_path)
+    y.to_csv(y_path)
+    ID.to_csv(ID_path)
+
+    return X_path, y_path, ID_path
 
 
-def load_dataset():
+def load_dataset(should_generate_dataset=False,
+                 use_vad=False,
+                 X_path='data/feature_vector_based_mean_mfcc_and_std_mfcc.csv',
+                 y_path='data/y_labels.csv',
+                 ID_path='data/IDs.csv'):
+    if should_generate_dataset:
+        X_path, y_path, ID_path = generate_csv_dataset(use_vad)
     starting_time = time.time()
-
     # data = pd.read_csv('./data/characteristic_vector_using_mfcc_and_mean_square_deviation_20230722.csv')
-    X = pd.read_csv('data/feature_vector_based_mean_mfcc_and_std_mfcc.csv')
+    X = pd.read_csv(X_path)
     X = X.drop('Unnamed: 0', axis=1)
-    y = pd.read_csv('data/y_labels.csv')
+    y = pd.read_csv(y_path)
     y = y.drop('Unnamed: 0', axis=1)
-    ID = pd.read_csv('data/IDs.csv')
+    ID = pd.read_csv(ID_path)
     ID = ID.drop('Unnamed: 0', axis=1)
 
     print("data loaded in " + str(time.time() - starting_time) + "ms")
