@@ -7,6 +7,7 @@ import platform
 from tqdm import tqdm
 import time
 import pandas as pd
+from pydub import AudioSegment
 
 
 def get_emotions_dictionary():
@@ -66,16 +67,32 @@ def get_observed_emotions():
     return ['sad', 'angry', 'happy', 'disgust', 'surprised', 'neutral', 'calm', 'fear']
 
 
+# Function to perform voice activity detection
+def detect_voice_activity(audio_file_path, silence_threshold=40):
+    audio = AudioSegment.from_wav(audio_file_path)
+    voice_segments = []
+    current_segment = []
+
+    for sample in audio:
+        if abs(sample.dBFS) > silence_threshold:
+            current_segment.append(sample)
+        elif len(current_segment) > 0:
+            voice_segments.append(AudioSegment(current_segment))
+            current_segment = []
+
+    return voice_segments
+
+
 def extract_feature(file_name, mfcc_flag):
-    '''
+    """
     Performing the calculation of supra-segment features
     based on MFCC to obtain a characteristic vector.
 
     Output:
     The resulting mean MFCC and standard deviation of MFCC
     provides a measure of the average squared deviation of
-    each MFCC feature across time line.
-    '''
+    each MFCC feature across timeline.
+    """
     X, sample_rate = librosa.load(file_name)
     if mfcc_flag:
         mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T
