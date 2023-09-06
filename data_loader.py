@@ -109,7 +109,7 @@ def extract_mffcs_with_vad(file_name):
     return mean_mfcc, sd_mfcc
 
 
-def extract_feature(file_name, mfcc_flag):
+def extract_feature(file_name, mfcc_flag, n_fft = 2048):
     """
     Performing the calculation of supra-segment features
     based on MFCC to obtain a characteristic vector.
@@ -121,7 +121,7 @@ def extract_feature(file_name, mfcc_flag):
     """
     X, sample_rate = librosa.load(file_name)
     if mfcc_flag:
-        mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T
+        mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40, n_fft=n_fft).T # default n_fft = 2048 (window size)
         mean_mfcc = np.mean(mfccs, axis=0)
         sd_mfcc = np.std(mfccs, axis=0)
         return mean_mfcc, sd_mfcc
@@ -135,9 +135,10 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
+    n_fft = 1024 # 2048 -- default
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
-    return data
+    return data, n_fft
 
 
 def build_dataset(use_vad=False):
@@ -146,7 +147,7 @@ def build_dataset(use_vad=False):
     # feature to extract
     mfcc = True
 
-    data = dataset_options()
+    data, n_fft = dataset_options()
     paths = []
     if data['ravdess']:
         if platform.system() == "Windows":
@@ -170,7 +171,7 @@ def build_dataset(use_vad=False):
             if use_vad:
                 mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file)
             else:
-                mean_mfcc, sd_mfcc = extract_feature(file, mfcc)
+                mean_mfcc, sd_mfcc = extract_feature(file, mfcc, n_fft=n_fft)
             feature = np.hstack((mean_mfcc, sd_mfcc))
             X.append(feature)
             y.append(emotion)
@@ -198,7 +199,7 @@ def generate_csv_dataset(use_vad=False):
     :return: X - features, y = class_labels, IDs = actor id
     """
     start_time = time.time()
-
+    _,n_fft = dataset_options()
     dataset = build_dataset(use_vad)
 
     print("--- Data loaded. Loading time: %s seconds ---" % (time.time() - start_time))
@@ -218,7 +219,7 @@ def generate_csv_dataset(use_vad=False):
         y_path = 'data/vad_y_labels.csv'
         ID_path = 'data/vad_IDs.csv'
     else:
-        X_path = 'data/feature_vector_based_mean_mfcc_and_std_mfcc.csv'
+        X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
         y_path = 'data/y_labels.csv'
         ID_path = 'data/IDs.csv'
     X.to_csv(X_path)
