@@ -135,7 +135,7 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 1024 # 2048 -- default
+    n_fft = 4096 # 2048 -- default
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
     return data, n_fft
@@ -200,6 +200,8 @@ def generate_csv_dataset(use_vad=False):
     """
     start_time = time.time()
     _,n_fft = dataset_options()
+    print(f'INFO: n_fft={n_fft}')
+    
     dataset = build_dataset(use_vad)
 
     print("--- Data loaded. Loading time: %s seconds ---" % (time.time() - start_time))
