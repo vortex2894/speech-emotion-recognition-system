@@ -136,7 +136,7 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 8192  # 2048 -- default
+    n_fft = 4096  # 2048 -- default
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
     return data, n_fft
