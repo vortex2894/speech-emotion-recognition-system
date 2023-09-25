@@ -83,7 +83,7 @@ def detect_voice_activity(audio_file_path, silence_threshold=40):
     return voice_segments
 
 
-def extract_mffcs_with_vad(file_name):
+def extract_mffcs_with_vad(file_name, n_fft=8192):
     """
     Performs voice activity detection on a given sample.
     After that performs the calculation of supra-segment features
@@ -94,18 +94,29 @@ def extract_mffcs_with_vad(file_name):
     provides a measure of the average squared deviation of
     each MFCC feature across timeline.
     """
-    voice_segments = detect_voice_activity(file_name)
     # Process voice segments and extract MFCCs
-    mfcc_features = []
-    for segment in voice_segments:
-        # Convert PyDub AudioSegment to NumPy array
-        audio_array = np.array(segment.get_array_of_samples())
+    X, sample_rate = librosa.load(file_name)
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40, n_fft=n_fft).T        
+    # VAD
+    mfccs = mfccs[:,1:] # exclude coeff 0
+    mel_frame_power = np.sum(mfccs**2,axis=1)/mfccs.shape[1]
+    mel_uttr_power = np.sum(mel_frame_power)/mfccs.shape[0]
+    r1,r2 = 5, 0.5
+    vad_threshold = r1 + r2*np.log10(mel_uttr_power)
+    vad_out = mel_frame_power>vad_threshold
 
-        # Compute MFCCs using librosa
-        mfcc = librosa.feature.mfcc(y=audio_array, sr=segment.frame_rate, n_mfcc=40).T
-        mfcc_features.append(mfcc)
+    #voice_segments = detect_voice_activity(file_name)
+    
+    mfcc_features = mfccs[vad_out,:]
+    # for ind in range(vad_out):
+    #     if vad_out:
+    #         mfcc_features.append(mfccs[ind,:])
+        
     mean_mfcc = np.mean(mfcc_features, axis=0)
     sd_mfcc = np.std(mfcc_features, axis=0)
+    if np.sum(np.isnan(sd_mfcc))>0:
+        print('NaN!')
+
     return mean_mfcc, sd_mfcc
 
 
@@ -136,7 +147,7 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 32768  # 2048 -- default
+    n_fft = 2048  # 2048 -- default (others: 32768 / 8192 / 4096)
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
     return data, n_fft
@@ -170,7 +181,7 @@ def build_dataset(use_vad=False):
                 continue
             actor = np.array(get_actors()[splited_file_name[6].split(".")[0]])
             if use_vad:
-                mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file)
+                mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file, n_fft=n_fft)
             else:
                 mean_mfcc, sd_mfcc = extract_feature(file, mfcc, n_fft=n_fft)
             feature = np.hstack((mean_mfcc, sd_mfcc))
@@ -218,13 +229,12 @@ def generate_csv_dataset(use_vad=False):
     print("ID.shape = ", ID.shape)
 
     if use_vad:
-        X_path = 'data/vad_feature_vector_based_mean_mfcc_and_std_mfcc.csv'
-        y_path = 'data/vad_y_labels.csv'
-        ID_path = 'data/vad_IDs.csv'
+        X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}_vad.csv'
     else:
         X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
-        y_path = f'data/y_labels_{n_fft}.csv'
-        ID_path = f'data/IDs_{n_fft}.csv'
+    
+    y_path = f'data/y_labels_{n_fft}.csv'
+    ID_path = f'data/IDs_{n_fft}.csv'                
     X.to_csv(X_path)
     y.to_csv(y_path)
     ID.to_csv(ID_path)
