@@ -140,6 +140,29 @@ def extract_feature(file_name, mfcc_flag, n_fft=8192):
     else:
         return None
 
+def extract_mfccs_with_delta(file_name, n_fft=8192):
+    """
+    Performing the calculation of supra-segment features
+    based on MFCC to obtain a feature vector.
+
+    Output:
+    mean MFCC / SD of MFCC / mean delta MFCC / SD of delta MFCC    
+    each MFCC feature averaged across time axis.
+    """
+    X, sample_rate = librosa.load(file_name)
+    
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
+                                     n_fft=n_fft).T  # default n_fft = 2048 (window size)
+    mfcc_delta = librosa.feature.delta(mfccs)
+
+    mean_mfcc = np.mean(mfccs, axis=0)
+    sd_mfcc = np.std(mfccs, axis=0)
+
+    mean_delta_mfcc = np.mean(mfcc_delta, axis=0)
+    sd_delta_mfcc = np.std(mfcc_delta, axis=0)
+
+    return mean_mfcc, sd_mfcc, mean_delta_mfcc, sd_delta_mfcc
+    
 
 def dataset_options():
     # choose datasets
@@ -147,13 +170,13 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 2048  # 2048 -- default (others: 32768 / 8192 / 4096)
+    n_fft = 8192  # 2048 -- default (others: 32768 / 8192 / 4096)
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
     return data, n_fft
 
 
-def build_dataset(use_vad=False):
+def build_dataset(use_vad=False, use_delta_mfcc=False):
     X, y, ID = [], [], []
 
     # feature to extract
@@ -181,10 +204,17 @@ def build_dataset(use_vad=False):
                 continue
             actor = np.array(get_actors()[splited_file_name[6].split(".")[0]])
             if use_vad:
-                mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file, n_fft=n_fft)
+                if use_delta_mfcc:
+                    print('Error! No function mfcc with VAD')
+                else:
+                    mean_mfcc, sd_mfcc = extract_mffcs_with_vad(file, n_fft=n_fft)
             else:
-                mean_mfcc, sd_mfcc = extract_feature(file, mfcc, n_fft=n_fft)
-            feature = np.hstack((mean_mfcc, sd_mfcc))
+                if use_delta_mfcc:
+                    mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta = extract_mfccs_with_delta(file, n_fft=n_fft)
+                    feature = np.hstack((mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta))
+                else:
+                    mean_mfcc, sd_mfcc = extract_feature(file, mfcc, n_fft=n_fft)
+                    feature = np.hstack((mean_mfcc, sd_mfcc))
             X.append(feature)
             y.append(emotion)
             ID.append(actor)
@@ -203,7 +233,7 @@ def build_dataset(use_vad=False):
     return {"X": X, "y": y, "ID": ID}
 
 
-def generate_csv_dataset(use_vad=False):
+def generate_csv_dataset(use_vad=False, use_delta_mfcc=False):
     """
     Generates a data set containing combined features matrix (MFCCs and standard deviation of MFCC),
     class labels and actor IDs
@@ -214,7 +244,7 @@ def generate_csv_dataset(use_vad=False):
     _, n_fft = dataset_options()
     print(f'INFO: n_fft={n_fft}')
 
-    dataset = build_dataset(use_vad)
+    dataset = build_dataset(use_vad, use_delta_mfcc)
 
     print("--- Data loaded. Loading time: %s seconds ---" % (time.time() - start_time))
     X = pd.DataFrame(dataset["X"])
@@ -231,10 +261,13 @@ def generate_csv_dataset(use_vad=False):
     if use_vad:
         X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}_vad.csv'
     else:
-        X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
+        if use_delta_mfcc:
+            X_path = f'data/feature_mfcc_delta_nfft_{n_fft}.csv'
+        else:
+            X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
     
-    y_path = f'data/y_labels_{n_fft}.csv'
-    ID_path = f'data/IDs_{n_fft}.csv'                
+    y_path = f'data/y_labels.csv'
+    ID_path = f'data/IDs.csv'                
     X.to_csv(X_path)
     y.to_csv(y_path)
     ID.to_csv(ID_path)
