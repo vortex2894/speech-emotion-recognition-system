@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from pydub import AudioSegment
 from tqdm import tqdm
+import scipy.stats as stats
 
 
 def get_emotions_dictionary():
@@ -96,25 +97,25 @@ def extract_mffcs_with_vad(file_name, n_fft=8192):
     """
     # Process voice segments and extract MFCCs
     X, sample_rate = librosa.load(file_name)
-    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40, n_fft=n_fft).T        
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40, n_fft=n_fft).T
     # VAD
-    mfccs = mfccs[:,1:] # exclude coeff 0
-    mel_frame_power = np.sum(mfccs**2,axis=1)/mfccs.shape[1]
-    mel_uttr_power = np.sum(mel_frame_power)/mfccs.shape[0]
-    r1,r2 = 5, 0.5
-    vad_threshold = r1 + r2*np.log10(mel_uttr_power)
-    vad_out = mel_frame_power>vad_threshold
+    mfccs = mfccs[:, 1:]  # exclude coeff 0
+    mel_frame_power = np.sum(mfccs ** 2, axis=1) / mfccs.shape[1]
+    mel_uttr_power = np.sum(mel_frame_power) / mfccs.shape[0]
+    r1, r2 = 5, 0.5
+    vad_threshold = r1 + r2 * np.log10(mel_uttr_power)
+    vad_out = mel_frame_power > vad_threshold
 
-    #voice_segments = detect_voice_activity(file_name)
-    
-    mfcc_features = mfccs[vad_out,:]
+    # voice_segments = detect_voice_activity(file_name)
+
+    mfcc_features = mfccs[vad_out, :]
     # for ind in range(vad_out):
     #     if vad_out:
     #         mfcc_features.append(mfccs[ind,:])
-        
+
     mean_mfcc = np.mean(mfcc_features, axis=0)
     sd_mfcc = np.std(mfcc_features, axis=0)
-    if np.sum(np.isnan(sd_mfcc))>0:
+    if np.sum(np.isnan(sd_mfcc)) > 0:
         print('NaN!')
 
     return mean_mfcc, sd_mfcc
@@ -140,6 +141,7 @@ def extract_feature(file_name, mfcc_flag, n_fft=8192):
     else:
         return None
 
+
 def extract_mfccs_with_delta(file_name, n_fft=8192):
     """
     Performing the calculation of supra-segment features
@@ -150,9 +152,9 @@ def extract_mfccs_with_delta(file_name, n_fft=8192):
     each MFCC feature averaged across time axis.
     """
     X, sample_rate = librosa.load(file_name)
-    
+
     mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
-                                     n_fft=n_fft).T  # default n_fft = 2048 (window size)
+                                 n_fft=n_fft).T  # default n_fft = 2048 (window size)
     mfcc_delta = librosa.feature.delta(mfccs)
 
     mean_mfcc = np.mean(mfccs, axis=0)
@@ -162,7 +164,35 @@ def extract_mfccs_with_delta(file_name, n_fft=8192):
     sd_delta_mfcc = np.std(mfcc_delta, axis=0)
 
     return mean_mfcc, sd_mfcc, mean_delta_mfcc, sd_delta_mfcc
-    
+
+
+def extract_mfccs_with_delta_delta(file_name, n_fft=4096):
+    """
+    Performing the calculation of supra-segment features
+    based on MFCC to obtain a feature vector.
+
+    Output:
+    mean MFCC / SD of MFCC / mean delta MFCC / SD of delta MFCC  / mean delta delta MFCC / SD of delta delta MFCC
+    each MFCC feature averaged across time axis.
+    """
+    X, sample_rate = librosa.load(file_name)
+
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
+                                 n_fft=n_fft).T  # default n_fft = 2048 (window size)
+
+    mean_mfcc = np.mean(mfccs, axis=0)
+    sd_mfcc = np.std(mfccs, axis=0)
+
+    mfcc_delta = librosa.feature.delta(mfccs)
+    mean_delta_mfcc = np.mean(mfcc_delta, axis=0)
+    sd_delta_mfcc = np.std(mfcc_delta, axis=0)
+
+    mfcc_delta_delta = librosa.feature.delta(mfccs, order=2)
+    mean_delta_delta_mfcc = np.mean(mfcc_delta_delta, axis=0)
+    sd_delta_delta_mfcc = np.std(mfcc_delta_delta, axis=0)
+
+    return mfccs, mean_mfcc, sd_mfcc, mean_delta_mfcc, sd_delta_mfcc, mean_delta_delta_mfcc, sd_delta_delta_mfcc
+
 
 def dataset_options():
     # choose datasets
@@ -176,7 +206,7 @@ def dataset_options():
     return data, n_fft
 
 
-def build_dataset(use_vad=False, use_delta_mfcc=False):
+def build_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mfcc=False):
     X, y, ID = [], [], []
 
     # feature to extract
@@ -212,6 +242,12 @@ def build_dataset(use_vad=False, use_delta_mfcc=False):
                 if use_delta_mfcc:
                     mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta = extract_mfccs_with_delta(file, n_fft=n_fft)
                     feature = np.hstack((mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta))
+                elif use_delta_delta_mfcc:
+                    mfccs, mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta, mean_delta_delta_mfcc, sd_delta_delta_mfcc = \
+                        (extract_mfccs_with_delta_delta(file, n_fft=n_fft))
+                    skewness_values, kurtosis_values, iqr_values = calculate_statistic_features(mfccs)
+                    feature = np.hstack((mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta, mean_delta_delta_mfcc,
+                                         sd_delta_delta_mfcc, skewness_values, kurtosis_values, iqr_values))
                 else:
                     mean_mfcc, sd_mfcc = extract_feature(file, mfcc, n_fft=n_fft)
                     feature = np.hstack((mean_mfcc, sd_mfcc))
@@ -233,7 +269,21 @@ def build_dataset(use_vad=False, use_delta_mfcc=False):
     return {"X": X, "y": y, "ID": ID}
 
 
-def generate_csv_dataset(use_vad=False, use_delta_mfcc=False):
+def calculate_statistic_features(mfccs):
+    """
+    Calculates skewness, kurtosis and inter-quantile range
+    :param mfccs: MFCC feature vectors
+    :return:
+    Function returns list of calculated skewness, kurtosis and inter-quantile range values
+    """
+    skewness_values = stats.skew(mfccs, axis=0)
+    kurtosis_values = stats.kurtosis(mfccs, axis=0)
+    iqr_values = stats.iqr(mfccs, axis=0)
+
+    return skewness_values, kurtosis_values, iqr_values
+
+
+def generate_csv_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mfcc=False):
     """
     Generates a data set containing combined features matrix (MFCCs and standard deviation of MFCC),
     class labels and actor IDs
@@ -244,7 +294,7 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False):
     _, n_fft = dataset_options()
     print(f'INFO: n_fft={n_fft}')
 
-    dataset = build_dataset(use_vad, use_delta_mfcc)
+    dataset = build_dataset(use_vad, use_delta_mfcc, use_delta_delta_mfcc)
 
     print("--- Data loaded. Loading time: %s seconds ---" % (time.time() - start_time))
     X = pd.DataFrame(dataset["X"])
@@ -260,14 +310,22 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False):
 
     if use_vad:
         X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}_vad.csv'
+        y_path = f'data/y_labels_feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}_vad.csv'
+        ID_path = f'data/IDs_feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}_vad.csv'
     else:
         if use_delta_mfcc:
             X_path = f'data/feature_mfcc_delta_nfft_{n_fft}.csv'
+            y_path = f'data/y_labels_feature_mfcc_delta_nfft_{n_fft}.csv'
+            ID_path = f'data/IDs_feature_mfcc_delta_nfft_{n_fft}.csv'
+        elif use_delta_delta_mfcc:
+            X_path = f'data/feature_mfcc_delta_delta_nfft_{n_fft}.csv'
+            y_path = f'data/y_labels_feature_mfcc_delta_delta_nfft_{n_fft}.csv'
+            ID_path = f'data/IDs_feature_mfcc_delta_delta_nfft_{n_fft}.csv'
         else:
             X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
-    
-    y_path = f'data/y_labels.csv'
-    ID_path = f'data/IDs.csv'                
+            y_path = f'data/y_labels.csv_feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}'
+            ID_path = f'data/IDs_feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
+
     X.to_csv(X_path)
     y.to_csv(y_path)
     ID.to_csv(ID_path)
@@ -277,11 +335,13 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False):
 
 def load_dataset(should_generate_dataset=False,
                  use_vad=False,
+                 use_delta_mfcc=False,
+                 use_delta_delta_mfcc=False,
                  X_path='data/feature_vector_based_mean_mfcc_and_std_mfcc.csv',
                  y_path='data/y_labels.csv',
                  ID_path='data/IDs.csv'):
     if should_generate_dataset:
-        X_path, y_path, ID_path = generate_csv_dataset(use_vad)
+        X_path, y_path, ID_path = generate_csv_dataset(use_vad, use_delta_mfcc, use_delta_delta_mfcc)
     starting_time = time.time()
     # data = pd.read_csv('./data/characteristic_vector_using_mfcc_and_mean_square_deviation_20230722.csv')
     X = pd.read_csv(X_path)
@@ -323,3 +383,10 @@ def get_custom_k_folds(X, y, ID, group_members):
         X_k_fold[k] = fold_X
         y_k_fold[k] = fold_y
     return X_k_fold, y_k_fold
+
+
+if __name__ == "__main__":
+    X, y, ID = load_dataset(should_generate_dataset=True,
+                            use_vad=False,
+                            use_delta_mfcc=False,
+                            use_delta_delta_mfcc=True)
