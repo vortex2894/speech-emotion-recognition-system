@@ -96,7 +96,7 @@ def extract_mffcs_with_vad(file_name, n_fft=8192):
     each MFCC feature across timeline.
     """
     # Process voice segments and extract MFCCs
-    X, sample_rate = librosa.load(file_name)
+    X, sample_rate = librosa.load(file_name, sr=None)
     mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40, n_fft=n_fft).T
     # VAD
     mfccs = mfccs[:, 1:]  # exclude coeff 0
@@ -131,7 +131,7 @@ def extract_feature(file_name, mfcc_flag, n_fft=8192):
     provides a measure of the average squared deviation of
     each MFCC feature across timeline.
     """
-    X, sample_rate = librosa.load(file_name)
+    X, sample_rate = librosa.load(file_name, sr=None)
     if mfcc_flag:
         mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
                                      n_fft=n_fft).T  # default n_fft = 2048 (window size)
@@ -151,7 +151,7 @@ def extract_mfccs_with_delta(file_name, n_fft=8192):
     mean MFCC / SD of MFCC / mean delta MFCC / SD of delta MFCC    
     each MFCC feature averaged across time axis.
     """
-    X, sample_rate = librosa.load(file_name)
+    X, sample_rate = librosa.load(file_name, sr=None)
 
     mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
                                  n_fft=n_fft).T  # default n_fft = 2048 (window size)
@@ -175,7 +175,7 @@ def extract_mfccs_with_delta_delta(file_name, n_fft=4096):
     mean MFCC / SD of MFCC / mean delta MFCC / SD of delta MFCC  / mean delta delta MFCC / SD of delta delta MFCC
     each MFCC feature averaged across time axis.
     """
-    X, sample_rate = librosa.load(file_name)
+    X, sample_rate = librosa.load(file_name, sr=None)
 
     mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
                                  n_fft=n_fft).T  # default n_fft = 2048 (window size)
