@@ -153,6 +153,7 @@ def extract_mfccs_with_delta(file_name, n_fft=8192):
     """
     X, sample_rate = librosa.load(file_name, sr=None)
 
+
     mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
                                  n_fft=n_fft).T  # default n_fft = 2048 (window size)
     mfcc_delta = librosa.feature.delta(mfccs)
@@ -177,7 +178,7 @@ def extract_mfccs_with_delta_delta(file_name, n_fft=4096):
     """
     X, sample_rate = librosa.load(file_name, sr=None)
 
-    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40,
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=34,
                                  n_fft=n_fft).T  # default n_fft = 2048 (window size)
 
     mean_mfcc = np.mean(mfccs, axis=0)
@@ -200,10 +201,11 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 8192  # 2048 -- default (others: 32768 / 8192 / 4096)
+    n_fft = 4096  # 2048 -- default (others: 32768 / 8192 / 4096)
+    n_mfcc = 34
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
-    return data, n_fft
+    return data, n_fft, n_mfcc
 
 
 def build_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mfcc=False):
@@ -212,7 +214,7 @@ def build_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mfcc=Fals
     # feature to extract
     mfcc = True
 
-    data, n_fft = dataset_options()
+    data, n_fft, n_mfcc = dataset_options()
     paths = []
     if data['ravdess']:
         if platform.system() == "Windows":
@@ -291,7 +293,7 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mf
     :return: X - features, y = class_labels, IDs = actor id
     """
     start_time = time.time()
-    _, n_fft = dataset_options()
+    _, n_fft, n_mfcc = dataset_options()
     print(f'INFO: n_fft={n_fft}')
 
     dataset = build_dataset(use_vad, use_delta_mfcc, use_delta_delta_mfcc)
@@ -318,9 +320,9 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mf
             y_path = f'data/y_labels_feature_mfcc_delta_nfft_{n_fft}.csv'
             ID_path = f'data/IDs_feature_mfcc_delta_nfft_{n_fft}.csv'
         elif use_delta_delta_mfcc:
-            X_path = f'data/feature_mfcc_delta_delta_nfft_{n_fft}.csv'
-            y_path = f'data/y_labels_feature_mfcc_delta_delta_nfft_{n_fft}.csv'
-            ID_path = f'data/IDs_feature_mfcc_delta_delta_nfft_{n_fft}.csv'
+            X_path = f'data/feature_mfcc_{n_mfcc}_delta_delta_nfft_{n_fft}.csv'
+            y_path = f'data/y_labels_feature_{n_mfcc}_mfcc_delta_delta_nfft_{n_fft}.csv'
+            ID_path = f'data/IDs_feature_mfcc_{n_mfcc}_delta_delta_nfft_{n_fft}.csv'
         else:
             X_path = f'data/feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}.csv'
             y_path = f'data/y_labels.csv_feature_vector_based_mean_mfcc_and_std_mfcc_nfft_{n_fft}'
@@ -386,7 +388,8 @@ def get_custom_k_folds(X, y, ID, group_members):
 
 
 if __name__ == "__main__":
-    X, y, ID = load_dataset(should_generate_dataset=True,
-                            use_vad=False,
-                            use_delta_mfcc=False,
-                            use_delta_delta_mfcc=True)
+    load_dataset(should_generate_dataset=True,
+                 use_delta_delta_mfcc=True,
+                 X_path='data/2023-11-08/feature_mfcc_30_delta_delta_nfft_8192.csv',
+                 y_path='data/2023-11-08/y_labels_feature_mfcc_30_delta_delta_nfft_8192.csv',
+                 ID_path='data/2023-11-08/IDs_feature_mfcc_30_delta_delta_nfft_8192.csv')
