@@ -167,7 +167,7 @@ def extract_mfccs_with_delta(file_name, n_fft=8192):
     return mean_mfcc, sd_mfcc, mean_delta_mfcc, sd_delta_mfcc
 
 
-def extract_mfccs_with_delta_delta(file_name, n_fft=4096):
+def extract_mfccs_with_delta_delta(file_name, n_fft=4096, n_mfcc=34):
     """
     Performing the calculation of supra-segment features
     based on MFCC to obtain a feature vector.
@@ -178,7 +178,7 @@ def extract_mfccs_with_delta_delta(file_name, n_fft=4096):
     """
     X, sample_rate = librosa.load(file_name, sr=None)
 
-    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=34,
+    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=n_mfcc,
                                  n_fft=n_fft).T  # default n_fft = 2048 (window size)
 
     mean_mfcc = np.mean(mfccs, axis=0)
@@ -201,7 +201,7 @@ def dataset_options():
     tess = False
     ravdess_speech = False
     ravdess_song = False
-    n_fft = 4096  # 2048 -- default (others: 32768 / 8192 / 4096)
+    n_fft = 16384  # 2048 -- default (others: 32768 / 8192 / 4096)
     n_mfcc = 34
     data = {'ravdess': ravdess, 'ravdess_speech': ravdess_speech, 'ravdess_song': ravdess_song, 'tess': tess}
     print(data)
@@ -246,7 +246,7 @@ def build_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mfcc=Fals
                     feature = np.hstack((mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta))
                 elif use_delta_delta_mfcc:
                     mfccs, mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta, mean_delta_delta_mfcc, sd_delta_delta_mfcc = \
-                        (extract_mfccs_with_delta_delta(file, n_fft=n_fft))
+                        (extract_mfccs_with_delta_delta(file, n_fft=n_fft, n_mfcc=n_mfcc))
                     skewness_values, kurtosis_values, iqr_values = calculate_statistic_features(mfccs)
                     feature = np.hstack((mean_mfcc, sd_mfcc, mean_mfcc_delta, sd_mfcc_delta, mean_delta_delta_mfcc,
                                          sd_delta_delta_mfcc, skewness_values, kurtosis_values, iqr_values))
@@ -294,7 +294,8 @@ def generate_csv_dataset(use_vad=False, use_delta_mfcc=False, use_delta_delta_mf
     """
     start_time = time.time()
     _, n_fft, n_mfcc = dataset_options()
-    print(f'INFO: n_fft={n_fft}')
+    print(f'INFO: n_fft={n_fft}, n_mfcc={n_mfcc}')
+
 
     dataset = build_dataset(use_vad, use_delta_mfcc, use_delta_delta_mfcc)
 
