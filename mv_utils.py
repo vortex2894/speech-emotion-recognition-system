@@ -122,3 +122,35 @@ def LDA_eval(X, y, feature_ind):
     # sensetivity = tp / (tp+fn)
     # specificity = tn / (tn+fp)
     return acc
+
+def LDA_LOSO_eval(X, y, feature_ind, subj_IDs):        
+    IDs = subj_IDs['0'].unique()
+    ID_only = np.squeeze(subj_IDs.values)
+
+    y_pred = np.zeros(X.shape[0])
+
+    for i in range(len(IDs)):
+        train_index, test_index = ID_only != (i + 1), ID_only == (i + 1)
+
+        X_train = copy.copy(X[np.ix_(train_index, feature_ind)])
+        if len(feature_ind) == 1:
+            X_train = X_train.reshape(-1, 1)
+
+        model = LinearDiscriminantAnalysis()  # solver='eigen'        
+
+        model.fit(X_train, y[train_index])
+
+        X_test = copy.copy(X[np.ix_(test_index, feature_ind)])
+        if len(feature_ind) == 1:
+            X_test = X_test.reshape(-1, 1)
+
+        y_pred[test_index] = model.predict(X_test)
+
+    # print('y_true = ',y_true)
+    # print('y_pred = ',y_pred)
+    auc = balanced_accuracy_score(y, y_pred)
+    # acc = metrics.accuracy_score(y_true, y_pred)
+    # tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred).ravel()
+    # sensetivity = tp / (tp+fn)
+    # specificity = tn / (tn+fp)
+    return auc
