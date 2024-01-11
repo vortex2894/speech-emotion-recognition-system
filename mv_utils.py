@@ -10,14 +10,14 @@ from sklearn.metrics import balanced_accuracy_score
 # from tqdm import tqdm
 
 
-def lasso_rank(X, y):
+def lasso_rank(X, y, lambda_range=[-9, -0.25]):
     y_reg = copy.copy(y)
     y_reg[y_reg == 0] = -1
     Lasso_model = linear_model.Lasso()
     Npt = 200
     coeffs = np.zeros((X.shape[1], Npt))
     # lambda_ = np.logspace(-4.5,0.9,Npt)
-    lambda_ = np.logspace(-9, -0.25, Npt)
+    lambda_ = np.logspace(lambda_range[0], lambda_range[1], Npt)
     i = 0
     for lamb in lambda_:
         Lasso_model = linear_model.Lasso(alpha=lamb, max_iter=180000)
