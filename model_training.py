@@ -8,7 +8,7 @@ def estimate_model(model, X_k_folds, y_k_folds):
     y_pred = []
     y_true = []
 
-    for k in tqdm(X_k_folds.keys()):
+    for k in X_k_folds.keys(): #tqdm(X_k_folds.keys()):
         # Prepare dataset
         X_train = pd.DataFrame()
         y_train = pd.DataFrame()
@@ -26,5 +26,5 @@ def estimate_model(model, X_k_folds, y_k_folds):
         y_true = np.concatenate((y_true, y_test.values), axis=None)
 
     UAR = model_evaluation.calculate_uar(y_true, y_pred)
-    print(f'UAR = {UAR:.3f}')
+    # print(f'UAR = {UAR:.3f}')
     return UAR, y_pred, y_true, y_test

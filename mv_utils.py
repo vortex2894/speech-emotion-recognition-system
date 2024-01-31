@@ -7,7 +7,8 @@ from sklearn.model_selection import KFold
 from sklearn import metrics
 # from sklearn.metrics import roc_auc_score
 from sklearn.metrics import balanced_accuracy_score
-
+import model_training
+import data_loader
 
 # from tqdm import tqdm
 
@@ -96,56 +97,39 @@ def SVM_eval(X, y, feature_ind, subj_IDs):
     # specificity = tn / (tn+fp)
     return auc
 
-
+# 
 def SVM_RBF_eval(X, y, feature_ind, subj_IDs):
+    '''
+    X -- pd.DataFrame with extracted features
+    y -- pd.DataFrame with labels
+    feature_ind -- indeces of features, that will be used
+    subj_IDs -- IDs of the actors
+    '''    
+    
+    X_selected = X.iloc[list(range(X.shape[0])),feature_ind]
+    
+    group_members= data_loader.get_k_fold_group_member()
+
+    X_k_folds, y_k_folds = data_loader.get_custom_k_folds(X_selected, y, subj_IDs, group_members)
+
     # Choose C and gamma params
     C = np.logspace(-4, 1, 12, endpoint=True)
     gamma = np.logspace(-3.5, -1.5, 10, endpoint=True)
-    auc_best = 0
-    C_best = None
-    gamma_best = None
-    ind_half = X.shape[0] // 2
+    uar_best = 0
+    C_best,gamma_best = None, None
+
     for val_C in C:
         for val_gamma in gamma:
             model = SVC(kernel='rbf', C=val_C, gamma=val_gamma, random_state=42)
-            model.fit(X[np.ix_(range(ind_half), feature_ind)], y[:ind_half])
-            y_pred = model.predict(X[np.ix_(range(ind_half, X.shape[0]), feature_ind)])
-            y_true = copy.copy(y[ind_half:])
-            y_true[y_true == -1] = 0
-            y_pred[y_pred == -1] = 0
-            tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred).ravel()
-            sensitivity = tp / (tp + fn)
-            specificity = tn / (tn + fp)
-            auc = (sensitivity + specificity) / 2
-            if auc_best < auc:
+            UAR,y_pr,y_tr,y_te = model_training.estimate_model(model, X_k_folds, y_k_folds)
+
+            if uar_best < UAR:
                 C_best = val_C
                 gamma_best = val_gamma
-                auc_best = auc
+                uar_best = UAR
+                print(f'UAR = {UAR:.3f}')
 
-    # Doing LOSO-CV
-    IDs = subj_IDs['0'].unique()
-    ID_only = np.squeeze(subj_IDs.values)
-
-    y_pred = np.zeros(X.shape[0])
-
-    for i in range(len(IDs)):
-        train_index, test_index = ID_only != (i + 1), ID_only == (i + 1)
-
-        X_train = copy.copy(X[np.ix_(train_index, feature_ind)])
-        if len(feature_ind) == 1:
-            X_train = X_train.reshape(-1, 1)
-
-        model = SVC(kernel='rbf', C=C_best, gamma=gamma_best, random_state=42)
-
-        model.fit(X_train, y[train_index])
-
-        X_test = copy.copy(X[np.ix_(test_index, feature_ind)])
-        if len(feature_ind) == 1:
-            X_test = X_test.reshape(-1, 1)
-
-        y_pred[test_index] = model.predict(X_test)
-    auc = balanced_accuracy_score(y, y_pred)
-    return auc
+    return uar_best
 
 
 def LDA_eval(X, y, feature_ind):
