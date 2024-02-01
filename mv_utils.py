@@ -121,15 +121,17 @@ def SVM_RBF_eval(X, y, feature_ind, subj_IDs):
     for val_C in C:
         for val_gamma in gamma:
             model = SVC(kernel='rbf', C=val_C, gamma=val_gamma, random_state=42)
-            UAR,y_pr,y_tr,y_te = model_training.estimate_model(model, X_k_folds, y_k_folds)
+            UAR,y_pr,y_tr = model_training.estimate_model(model, X_k_folds, y_k_folds)
 
             if uar_best < UAR:
                 C_best = val_C
                 gamma_best = val_gamma
+                y_pred = copy.copy(y_pr)
+                y_true = copy.copy(y_tr)
                 uar_best = UAR
-                print(f'UAR = {UAR:.3f}')
+                # print(f'UAR = {UAR:.3f}')
 
-    return uar_best
+    return uar_best, C_best, gamma_best, y_pred, y_true
 
 
 def LDA_eval(X, y, feature_ind):

@@ -52,8 +52,8 @@ def plot_confusion_matrix(y_test, y_true, y_pred, image_path=f'Doc/figures/confu
     fig.savefig(image_path, format='jpg', dpi=200, bbox_inches='tight', pad_inches=0.2)
 
 
-def plot_confusion_matrix_eng(y_test, y_true, y_pred, image_path=f'Doc/figures/confusion_matrix_eng.jpg'):
-    labels = np.unique(y_test)
+def plot_confusion_matrix_eng(y_true, y_pred, image_path=f'Doc/figures/confusion_matrix_eng.jpg'):
+    labels = np.unique(y_true)
     labels_translated = np.array(['Anger',
                                   'Calmness',
                                   'Disgust',

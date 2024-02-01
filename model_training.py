@@ -27,4 +27,4 @@ def estimate_model(model, X_k_folds, y_k_folds):
 
     UAR = model_evaluation.calculate_uar(y_true, y_pred)
     # print(f'UAR = {UAR:.3f}')
-    return UAR, y_pred, y_true, y_test
+    return UAR, y_pred, y_true
