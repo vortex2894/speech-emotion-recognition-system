@@ -66,7 +66,8 @@ def plot_confusion_matrix_eng(y_true, y_pred, image_path=f'Doc/figures/confusion
 
     df_cm_4 = pd.DataFrame(cm, columns=labels_translated, index=labels_translated)
     fig, ax = plt.subplots(dpi=110)
-    sns.heatmap(df_cm_4, annot=True, fmt=' ', linewidth=1.5) # fmt='.1f'
+    sns.heatmap(df_cm_4, annot=True, fmt='.2f', linewidth=1.5) # fmt='.1f'
     plt.show()
+    print(df_cm_4)
     print('Saving confusion matrix with name: ', image_path)
     fig.savefig(image_path, format='jpg', dpi=200, bbox_inches='tight', pad_inches=0.2)

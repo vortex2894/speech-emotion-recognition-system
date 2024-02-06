@@ -134,33 +134,49 @@ def SVM_RBF_eval(X, y, feature_ind, subj_IDs):
     return uar_best, C_best, gamma_best, y_pred, y_true
 
 
-def LDA_eval(X, y, feature_ind):
-    LDA_model = LinearDiscriminantAnalysis()  # solver='eigen'
+def LDA_eval(X, y, feature_ind, subj_IDs):
+    '''
+    X -- pd.DataFrame with extracted features
+    y -- pd.DataFrame with labels
+    feature_ind -- indeces of features, that will be used
+    subj_IDs -- IDs of the actors
+    '''
+    X_selected = X.iloc[list(range(X.shape[0])),feature_ind]
+    
+    group_members= data_loader.get_k_fold_group_member()
 
-    kf = KFold(n_splits=X.shape[0])
-    y_true = np.zeros(X.shape[0])
-    y_pred = np.zeros(X.shape[0])
+    X_k_folds, y_k_folds = data_loader.get_custom_k_folds(X_selected, y, subj_IDs, group_members)
 
-    for i, (train_index, test_index) in enumerate(kf.split(X)):
-        X_tmp = copy.copy(X[np.ix_(train_index, feature_ind)])
-        if len(feature_ind) == 1:
-            X_tmp = X_tmp.reshape(-1, 1)
+    model = LinearDiscriminantAnalysis()  # solver='eigen'
 
-        LDA_model.fit(X_tmp, y[train_index])
-        y_true[i] = y[test_index]
+    UAR,y_pr,y_tr = model_training.estimate_model(model, X_k_folds, y_k_folds)
 
-        X_test_tmp = copy.copy(X[np.ix_(test_index, feature_ind)])
-        if len(feature_ind) == 1:
-            X_test_tmp = X_test_tmp.reshape(-1, 1)
-        y_pred[i] = LDA_model.predict(X_test_tmp)
 
-    # print('y_true = ',y_true)
-    # print('y_pred = ',y_pred)
-    acc = metrics.accuracy_score(y_true, y_pred)
-    # tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred).ravel()
-    # sensetivity = tp / (tp+fn)
-    # specificity = tn / (tn+fp)
-    return acc
+    # kf = KFold(n_splits=X.shape[0])
+    # y_true = np.zeros(X.shape[0])
+    # y_pred = np.zeros(X.shape[0])
+
+    # for i, (train_index, test_index) in enumerate(kf.split(X)):
+    #     X_tmp = copy.copy(X[np.ix_(train_index, feature_ind)])
+    #     if len(feature_ind) == 1:
+    #         X_tmp = X_tmp.reshape(-1, 1)
+
+    #     LDA_model.fit(X_tmp, y[train_index])
+    #     y_true[i] = y[test_index]
+
+    #     X_test_tmp = copy.copy(X[np.ix_(test_index, feature_ind)])
+    #     if len(feature_ind) == 1:
+    #         X_test_tmp = X_test_tmp.reshape(-1, 1)
+    #     y_pred[i] = LDA_model.predict(X_test_tmp)
+
+    # # print('y_true = ',y_true)
+    # # print('y_pred = ',y_pred)
+    # acc = metrics.accuracy_score(y_true, y_pred)
+    # # tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred).ravel()
+    # # sensetivity = tp / (tp+fn)
+    # # specificity = tn / (tn+fp)
+    
+    return UAR,y_pr,y_tr
 
 
 def LDA_LOSO_eval(X, y, feature_ind, subj_IDs):
